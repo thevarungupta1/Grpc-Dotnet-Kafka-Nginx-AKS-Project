@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "rNaONj3udcfaOe4hkTj+f6jPui1hq35VUVZ0bcgz3vo=",
+  "Source": "GrpcServiceA",
+  "BasePath": "_content/GrpcServiceA",
+  "Mode": "Default",
+  "ManifestType": "Publish",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

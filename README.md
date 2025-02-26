@@ -1,10 +1,10 @@
-# MyGrpcProject: gRPC Services with Kafka & AKS
+# Dotnet GRPC Services with Kafka & AKS
 
 This sample project demonstrates two gRPC services built in .NET Core that communicate via Kafka. An Nginx API gateway fronts the services, and all components (including Kafka with its required Zookeeper) are deployed on Azure Kubernetes Service (AKS). For external testing, the API gateway is exposed via a NodePort service (which provides an external IP/port). Customize the image names, registry URLs, and any environment-specific settings as needed.
 
-## 1. Project Structure
+## Project Structure
 
-```plaintext
+```
 MyGrpcProject/
 ├── GrpcServiceA/
 │   ├── GrpcServiceA.csproj
@@ -33,13 +33,11 @@ MyGrpcProject/
     └── kafka-zookeeper-deployment.yaml
 ```
 
+## 1. gRPC Service A
+### 1.1. Proto Definition
+File: **GrpcServiceA/Protos/greet.proto**
 
-1. gRPC Service A
-1.1. Proto Definition
-File: GrpcServiceA/Protos/greet.proto
 ```
-proto
-Copy
 syntax = "proto3";
 
 option csharp_namespace = "MyGrpcProject.Protos";
@@ -64,12 +62,10 @@ message HelloReply {
 
 ```
 
-1.2. Project File
-File: GrpcServiceA/GrpcServiceA.csproj
+### 1.2. Project File
+File: **GrpcServiceA/GrpcServiceA.csproj**
 
 ```
-xml
-Copy
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -86,12 +82,10 @@ Copy
 </Project>
 ```
 
-1.3. Program Entry Point
-File: GrpcServiceA/Program.cs
+### 1.3. Program Entry Point
+File: **GrpcServiceA/Program.cs**
 
 ```
-csharp
-Copy
 using GrpcServiceA.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -111,11 +105,10 @@ app.MapGet("/", () => "gRPC Service A is running.");
 
 app.Run();
 ```
-1.4. Greeter Service Implementation
-File: GrpcServiceA/Services/GreeterService.cs
+
+### 1.4. Greeter Service Implementation
+File: **GrpcServiceA/Services/GreeterService.cs**
 ```
-csharp
-Copy
 using Grpc.Core;
 using MyGrpcProject.Protos;
 
@@ -138,11 +131,10 @@ namespace GrpcServiceA.Services
     }
 }
 ```
-1.5. Kafka Producer Implementation
-File: GrpcServiceA/Services/KafkaProducer.cs
+
+### 1.5. Kafka Producer Implementation
+File: **GrpcServiceA/Services/KafkaProducer.cs**
 ```
-csharp
-Copy
 using Confluent.Kafka;
 
 namespace GrpcServiceA.Services
@@ -168,13 +160,12 @@ namespace GrpcServiceA.Services
     }
 }
 ```
-2. gRPC Service B
-2.1. Proto Definition
-File: GrpcServiceB/Protos/greet.proto
-(Identical to Service A’s proto file.)
+
+### 2. gRPC Service B
+### 2.1. Proto Definition
+File: **GrpcServiceB/Protos/greet.proto**
+*(Identical to Service A’s proto file.)*
 ```
-proto
-Copy
 syntax = "proto3";
 
 option csharp_namespace = "MyGrpcProject.Protos";
@@ -193,11 +184,10 @@ message HelloReply {
   string message = 1;
 }
 ```
-2.2. Project File
-File: GrpcServiceB/GrpcServiceB.csproj
+
+### 2.2. Project File
+File: **GrpcServiceB/GrpcServiceB.csproj**
 ```
-xml
-Copy
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -213,11 +203,10 @@ Copy
   </ItemGroup>
 </Project>
 ```
-2.3. Program Entry Point
-File: GrpcServiceB/Program.cs
+
+### 2.3. Program Entry Point
+File: **GrpcServiceB/Program.cs**
 ```
-csharp
-Copy
 using GrpcServiceB.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -235,11 +224,10 @@ app.MapGet("/", () => "gRPC Service B is running.");
 
 app.Run();
 ```
-2.4. Greeter Service Implementation
-File: GrpcServiceB/Services/GreeterService.cs
+
+### 2.4. Greeter Service Implementation
+File: **GrpcServiceB/Services/GreeterService.cs**
 ```
-csharp
-Copy
 using Grpc.Core;
 using MyGrpcProject.Protos;
 
@@ -254,11 +242,10 @@ namespace GrpcServiceB.Services
     }
 }
 ```
-2.5. Kafka Consumer Implementation
-File: GrpcServiceB/Services/KafkaConsumer.cs
+
+### 2.5. Kafka Consumer Implementation
+File: **GrpcServiceB/Services/KafkaConsumer.cs**
 ```
-csharp
-Copy
 using Confluent.Kafka;
 using Microsoft.Extensions.Hosting;
 
@@ -311,12 +298,42 @@ namespace GrpcServiceB.Services
     }
 }
 ```
-3. Nginx API Gateway
-3.1. Nginx Configuration
-File: Gateway/nginx.conf
+### 3. Containerization with Docker
+### 3.1. Dockerfile for gRPC Services
+Create a similar Dockerfile for each service (adjust paths as needed).
+
+For **GrpcServiceA**, for example, create `GrpcServiceA/Dockerfile`:
+
+
 ```
-nginx
-Copy
+# Use the ASP.NET runtime image as base.
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+EXPOSE 80
+EXPOSE 443
+
+# Build stage.
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["GrpcServiceA.csproj", "./"]
+RUN dotnet restore "GrpcServiceA.csproj"
+COPY . .
+RUN dotnet publish "GrpcServiceA.csproj" -c Release -o /app/publish
+
+# Final stage.
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "GrpcServiceA.dll"]
+
+```
+Repeat a similar Dockerfile for GrpcServiceB (adjusting project names).
+
+### 3.2. Nginx API Gateway
+### 3.2.1. Nginx Configuration (`Gateway/nginx.conf`)
+This config routes incoming HTTP/2 (gRPC) requests to the backend services.
+
+```
 worker_processes 1;
 
 events { worker_connections 1024; }
@@ -337,31 +354,31 @@ http {
         listen 80 http2;
 
         # Route gRPC calls based on service name in the URL.
-        location /ServiceA.Greeter/ {
+        location /GrpcServiceA.Greeter/ {
             grpc_pass grpc://grpc_service_a;
         }
-        location /ServiceB.Greeter/ {
+        location /GrpcServiceB.Greeter/ {
             grpc_pass grpc://grpc_service_b;
         }
     }
 }
 ```
-3.2. Dockerfile for Gateway
-File: Gateway/Dockerfile
+
+### 3.2. Dockerfile for Gateway
+A simple Dockerfile to build the Nginx container:
+File: **Gateway/Dockerfile**
 ```
-dockerfile
-Copy
 FROM nginx:alpine
 COPY nginx.conf /etc/nginx/nginx.conf
 ```
-4. Kubernetes Manifests
+
+
+### 4. Kubernetes Manifests for AKS
 All manifests below should be placed in the k8s/ folder.
 
-4.1. gRPC Service A Deployment and Service
-File: k8s/grpcservicea-deployment.yaml
+### 4.1. GrpcServiceA Deployment and Service
+File: **k8s/grpcservicea-deployment.yaml**
 ```
-yaml
-Copy
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -378,7 +395,7 @@ spec:
     spec:
       containers:
       - name: grpcservicea
-        image: yourregistry/grpcservicea:latest
+        image: varungupta2809/grpcservicea:latest
         ports:
         - containerPort: 80
         env:
@@ -397,11 +414,10 @@ spec:
     port: 80
     targetPort: 80
 ```
-4.2. gRPC Service B Deployment and Service
-File: k8s/grpcserviceb-deployment.yaml
+
+### 4.2. gRPC Service B Deployment and Service
+File: **k8s/grpcserviceb-deployment.yaml**
 ```
-yaml
-Copy
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -418,7 +434,7 @@ spec:
     spec:
       containers:
       - name: grpcserviceb
-        image: yourregistry/grpcserviceb:latest
+        image: varungupta2809/grpcserviceb:latest
         ports:
         - containerPort: 80
         env:
@@ -437,11 +453,10 @@ spec:
     port: 80
     targetPort: 80
 ```
-4.3. Gateway Deployment
-File: k8s/gateway-deployment.yaml
+
+### 4.3. Gateway Deployment
+File: **k8s/gateway-deployment.yaml**
 ```
-yaml
-Copy
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -458,15 +473,14 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: yourregistry/gateway:latest
+        image: varungupta2809/gateway:latest
         ports:
         - containerPort: 80
 ```
-4.4. Gateway NodePort Service (External IP for Testing)
-File: k8s/gateway-nodeport.yaml
+
+### 4.4. Gateway NodePort Service (External IP for Testing)
+File: **k8s/gateway-nodeport.yaml**
 ```
-yaml
-Copy
 apiVersion: v1
 kind: Service
 metadata:
@@ -481,12 +495,10 @@ spec:
     targetPort: 80
     nodePort: 30080  # Adjust if needed.
 ```
-4.5. Kafka & Zookeeper Deployment and Services
-File: k8s/kafka-zookeeper-deployment.yaml
+
+### 4.5. Kafka & Zookeeper Deployment and Services
+File: **k8s/kafka-zookeeper-deployment.yaml**
 ```
-yaml
-Copy
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -559,49 +571,53 @@ spec:
   selector:
     app: kafka
 ```
-5. Deployment & Testing Steps
+
+### 5. Deployment & Testing Steps
 Build & Publish the .NET Projects:
 In each service folder, run:
 ```
-bash
-Copy
+dotnet restore
+
+dotnet build
+
 dotnet publish -c Release
 ```
-Dockerize the Applications:
+### Dockerize the Applications:
 Build Docker images for each service and the gateway (adjust image names/registry as needed):
-```bash
-Copy
+```
 # For Service A
-docker build -t yourregistry/grpcservicea:latest -f GrpcServiceA/Dockerfile GrpcServiceA/
+docker build -t varungupta2809/grpcservicea:latest -f GrpcServiceA/Dockerfile GrpcServiceA/
 
 # For Service B
-docker build -t yourregistry/grpcserviceb:latest -f GrpcServiceB/Dockerfile GrpcServiceB/
+docker build -t varungupta2809/grpcserviceb:latest -f GrpcServiceB/Dockerfile GrpcServiceB/
 
 # For Gateway
-docker build -t yourregistry/gateway:latest Gateway/
+docker build -t varungupta2809/gateway:latest Gateway/
 ```
-Push Images to Your Registry:
 
-```bash
-Copy
-docker push yourregistry/grpcservicea:latest
-docker push yourregistry/grpcserviceb:latest
-docker push yourregistry/gateway:latest
+### Push Images to Your Registry:
+
 ```
-Deploy Kafka & Zookeeper on AKS:
-```bash
-Copy
+docker push varungupta2809/grpcservicea:latest
+docker push varungupta2809/grpcserviceb:latest
+docker push varungupta2809/gateway:latest
+```
+
+### Deploy Kafka & Zookeeper on AKS:
+```
+
 kubectl apply -f k8s/kafka-zookeeper-deployment.yaml
 ```
 Deploy the gRPC Services and Gateway:
-```bash
-Copy
+
+```
 kubectl apply -f k8s/grpcservicea-deployment.yaml
 kubectl apply -f k8s/grpcserviceb-deployment.yaml
 kubectl apply -f k8s/gateway-deployment.yaml
 kubectl apply -f k8s/gateway-nodeport.yaml
 ```
-Testing External Access:
+
+### Testing External Access:
 With the NodePort service in place, you can access the API gateway externally using any node’s IP address on port 30080 (for example, `http://<node-ip>:30080`). The Nginx gateway will route incoming gRPC calls to Service A or Service B based on the URL path defined in nginx.conf.
 
 This complete sample project sets up two gRPC services communicating via Kafka, an Nginx API gateway, and a Kafka+Zookeeper deployment—all hosted on AKS with an external endpoint for testing. Customize settings such as Kafka connection strings, image names, and nodePort values as needed for your environment.

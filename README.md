@@ -572,6 +572,32 @@ spec:
     app: kafka
 ```
 
+
+### 4.4. Ingress Configuration (`k8s/ingress.yaml`)
+Assuming you have an Nginx Ingress Controller installed in your AKS cluster:
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grpc-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+spec:
+  rules:
+  - host: grpc.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway
+            port:
+              number: 80
+```
+
+
 ### 5. Deployment & Testing Steps
 Build & Publish the .NET Projects:
 In each service folder, run:
